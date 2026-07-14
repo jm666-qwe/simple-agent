@@ -116,6 +116,25 @@ def build_system_prompt():
     return prompt
 
 
+# ===== Trace 模式 =====
+
+_trace_enabled = False
+
+def trace(step, detail):
+    """打印 ReAct 循环步骤"""
+    if not _trace_enabled:
+        return
+    labels = {
+        1: "[步骤1] LLM 推理 → 决定调用工具",
+        2: "[步骤2] 执行工具",
+        3: "[步骤3] 工具返回结果",
+        4: "[步骤4] LLM 整合 → 生成回答 / 继续调工具",
+    }
+    label = labels.get(step, f"[步骤{step}]")
+    print(f"\n  {label}")
+    if detail:
+        print(f"    {detail}")
+
 # ===== Streaming Agent Loop =====
 
 def agent(user_input, messages=None):
@@ -140,9 +159,14 @@ def agent(user_input, messages=None):
 
         # 纯文本回答 → 结束
         if not tool_calls:
+            trace(4, f"最终回答: {text[:80]}...")
             messages.append({"role": "assistant", "content": text})
             save_checkpoint(messages)
             return
+
+        # LLM 决定调用工具 → trace step 1
+        tool_names = [tc["function"]["name"] for tc in tool_calls]
+        trace(1, f"调用工具: {', '.join(tool_names)}")
 
         # 文本 + 工具调用
         assistant_msg = {"role": "assistant", "content": text or None}
@@ -172,6 +196,7 @@ def agent(user_input, messages=None):
 
             # 执行
             try:
+                trace(2, f"执行 {name}({arg_str})")
                 result = tool.run(**args)
             except Exception as e:
                 result = ToolResult(str(e), is_error=True)
@@ -180,6 +205,7 @@ def agent(user_input, messages=None):
             display = result.content[:80] + "..." if len(result.content) > 80 else result.content
             tag = "[错误]" if result.is_error else ""
             print(f"  <- {tag}{display}")
+            trace(3, f"{name} 返回: {display}")
 
             messages.append({
                 "role": "tool",
@@ -192,9 +218,18 @@ def agent(user_input, messages=None):
 # ===== CLI =====
 
 if __name__ == "__main__":
+    # --trace 模式
+    args = sys.argv[1:]
+    if "--trace" in args:
+        _trace_enabled = True
+        args.remove("--trace")
+    if "-t" in args:
+        _trace_enabled = True
+        args.remove("-t")
+
     # 单次模式
-    if len(sys.argv) > 1:
-        agent(" ".join(sys.argv[1:]))
+    if args:
+        agent(" ".join(args))
         sys.exit(0)
 
     # 断点恢复

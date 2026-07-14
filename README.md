@@ -23,7 +23,26 @@ simple-agent/
 ├── plugins/              # 插件目录 (.py 文件自动发现)
 │   └── example.py        # 示例插件
 ├── run.sh                # WSL 启动脚本
-└── requirements.txt      # openai, requests
+├── agent_simple.py        # 教学版：100 行纯 ReAct 循环
+└── requirements.txt
+
+## 想理解 Agent 原理？
+
+**先看 `agent_simple.py`**，100 行，单文件，只有核心循环 + 2 个工具。10 分钟读完就能复刻。
+
+**再看 `agent.py`**，加上流式输出、权限、记忆、MCP——每个模块都是教学版的后一步。
+
+**用 `--trace` 看运行过程**：
+```bash
+python3 agent.py --trace "圆的半径是5，求面积"
+```
+每一步清清楚楚：
+```
+[步骤1] LLM 推理 → 决定调用 calculate
+[步骤2] 执行 calculate
+[步骤3] calculate 返回: 78.53975
+[步骤4] LLM 整合 → 生成最终回答
+```
 ```
 
 ## 快速开始
