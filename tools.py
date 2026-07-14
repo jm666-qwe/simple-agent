@@ -331,7 +331,7 @@ class SearchWebTool(BaseTool):
             return ToolResult(f"搜索失败: {e}", is_error=True)
 
 
-_BLOCKED_NETS = [
+_BLOCKED_NETS_V4 = [
     (0x7F000000, 8), (0x0A000000, 8),       # 127.0.0.0/8, 10.0.0.0/8
     (0xAC100000, 12), (0xC0A80000, 16),      # 172.16.0.0/12, 192.168.0.0/16
     (0xA9FE0000, 16),                         # 169.254.0.0/16
@@ -339,17 +339,30 @@ _BLOCKED_NETS = [
 
 
 def _is_private_url(url_str):
-    """检查 URL 是否指向内网地址"""
+    """检查 URL 是否指向内网地址（IPv4 + IPv6）"""
     try:
         host = urlparse(url_str).hostname
         if not host:
             return False
-        ip = socket.gethostbyname(host)
-        packed = struct.unpack("!I", socket.inet_aton(ip))[0]
-        for net, bits in _BLOCKED_NETS:
-            mask = 0xFFFFFFFF << (32 - bits)
-            if packed & mask == net:
-                return True
+        # 解析所有地址（IPv4 + IPv6）
+        addrs = socket.getaddrinfo(host, None, family=socket.AF_UNSPEC, type=socket.SOCK_STREAM)
+        for _, _, _, _, sockaddr in addrs:
+            ip = sockaddr[0]
+            if ":" in ip:
+                # IPv6: 检查 loopback / link-local / unique-local
+                packed = socket.inet_pton(socket.AF_INET6, ip)
+                if packed == b"\x00" * 15 + b"\x01":          # ::1
+                    return True
+                if packed[0] == 0xFE and packed[1] & 0xC0 == 0x80:  # fe80::/10
+                    return True
+                if packed[0] & 0xFE == 0xFC:                   # fc00::/7
+                    return True
+            else:
+                packed = struct.unpack("!I", socket.inet_aton(ip))[0]
+                for net, bits in _BLOCKED_NETS_V4:
+                    mask = 0xFFFFFFFF << (32 - bits)
+                    if packed & mask == net:
+                        return True
     except Exception:
         return False
     return False

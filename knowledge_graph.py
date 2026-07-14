@@ -175,9 +175,9 @@ class KnowledgeGraph:
         for name, info in self.entities.items():
             etype = info.get("type", "concept")
             props = info.get("properties", {})
-            val = _html_escape.escape(props.get("value", "")[:50], quote=False)
-            safe_name = _html_escape.escape(name[:30], quote=False)
-            safe_etype = _html_escape.escape(etype, quote=False)
+            val = _html_escape.escape(props.get("value", "")[:50])
+            safe_name = _html_escape.escape(name[:30])
+            safe_etype = _html_escape.escape(etype)
             html += f'    <div class="entity {safe_etype}"><h3>{safe_name}</h3><p>{val}</p></div>\n'
 
         html += """  </div>
