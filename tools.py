@@ -349,8 +349,16 @@ def _is_private_url(url_str):
         for _, _, _, _, sockaddr in addrs:
             ip = sockaddr[0]
             if ":" in ip:
-                # IPv6: 检查 loopback / link-local / unique-local
                 packed = socket.inet_pton(socket.AF_INET6, ip)
+                # IPv4-mapped IPv6 (::ffff:0:0/96) — 提取 v4 地址再检查
+                if packed.startswith(b"\x00" * 10 + b"\xff\xff"):
+                    ipv4 = ".".join(str(b) for b in packed[12:16])
+                    packed4 = struct.unpack("!I", socket.inet_aton(ipv4))[0]
+                    for net, bits in _BLOCKED_NETS_V4:
+                        if packed4 & (0xFFFFFFFF << (32 - bits)) == net:
+                            return True
+                    continue
+                # IPv6 native: 检查 loopback / link-local / unique-local
                 if packed == b"\x00" * 15 + b"\x01":          # ::1
                     return True
                 if packed[0] == 0xFE and packed[1] & 0xC0 == 0x80:  # fe80::/10
