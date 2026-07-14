@@ -29,19 +29,16 @@ simple-agent/
 ## 快速开始
 
 ```bash
-# 1. 配置 API Key
-cp .env.example .env
-# 编辑 .env，填入 DEEPSEEK_API_KEY
+# 0. 注册 DeepSeek API Key (50 万 token 免费)
+#    https://platform.deepseek.com/api-keys
 
-# 2. 安装依赖（WSL 内）
-cd ~/simple-agent
-source venv/bin/activate
-pip install -r requirements.txt
+# 1. 一键安装
+git clone https://github.com/jm666-qwe/simple-agent.git
+cd simple-agent
+bash setup.sh
 
-# 3. 启动
-bash run.sh
-# 或设置别名: alias agent="~/simple-agent/run.sh"
-# 直接: agent
+# 2. 启动
+python3 agent.py
 ```
 
 ## 内置工具 (15个)
