@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+.env
+checkpoint.json
+memory.json
+daily_memory.json
+core_memory.json
+knowledge_graph.json
+knowledge_graph.html
+.DS_Store

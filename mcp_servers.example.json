@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "_说明": "配置 MCP 服务器，启动 agent 时自动加载。command 和 args 为必填。",
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/qiao"]
+    },
+    "fetch": {
+      "command": "uvx",
+      "args": ["mcp-server-fetch"]
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"]
+    }
+  }
+}
