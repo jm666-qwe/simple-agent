@@ -358,6 +358,14 @@ def _is_private_url(url_str):
                         if packed4 & (0xFFFFFFFF << (32 - bits)) == net:
                             return True
                     continue
+                # IPv4-compatible IPv6 (::/96, 如 ::127.0.0.1) — bytes 0-11 全零
+                if packed.startswith(b"\x00" * 12):
+                    ipv4 = ".".join(str(b) for b in packed[12:16])
+                    packed4 = struct.unpack("!I", socket.inet_aton(ipv4))[0]
+                    for net, bits in _BLOCKED_NETS_V4:
+                        if packed4 & (0xFFFFFFFF << (32 - bits)) == net:
+                            return True
+                    continue
                 # IPv6 native: 检查 loopback / link-local / unique-local
                 if packed == b"\x00" * 15 + b"\x01":          # ::1
                     return True
