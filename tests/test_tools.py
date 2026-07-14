@@ -161,7 +161,7 @@ class TestMemory:
 
     def test_tokenize_chinese(self):
         tokens = _tokenize("你好世界 hello")
-        assert "你好" in tokens or "世界" in tokens
+        assert "你好世界" in tokens
         assert "hello" in tokens
 
 

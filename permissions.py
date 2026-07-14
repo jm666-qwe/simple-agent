@@ -37,9 +37,11 @@ class PermissionManager:
 
         # default 模式：弹确认
         preview = self._format_preview(tool_name, args)
-        print(f"\n[权限确认] 是否允许 {tool_name}？")
-        print(preview)
-        choice = input("允许? (y/n/always): ").strip().lower()
+        show = f"\n[权限确认] 是否允许 {tool_name}？\n{preview}\n允许? (y/n/always): "
+        try:
+            choice = input(show).strip().lower()
+        except (EOFError, OSError):
+            return False, "非交互环境，自动拒绝"
 
         if choice == "always":
             self._session_allow.add(tool_name)

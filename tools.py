@@ -26,7 +26,7 @@ def set_memory_store(store: MemoryStore):
 
 # ===== 安全计算 =====
 
-_MATH_ALLOWED = set("0123456789.+-*/()% e")
+_MATH_ALLOWED = set("0123456789.+-*/()% eabcdefghijklmnopqrstuvwxyz_")
 _SAFE_FUNCS = {"abs": abs, "round": round, "min": min, "max": max, "pow": pow, "int": int, "float": float}
 
 
@@ -342,45 +342,48 @@ def _is_private_url(url_str):
     """检查 URL 是否指向内网地址（IPv4 + IPv6）"""
     try:
         host = urlparse(url_str).hostname
-        if not host:
-            return False
-        # 解析所有地址（IPv4 + IPv6）
-        addrs = socket.getaddrinfo(host, None, family=socket.AF_UNSPEC, type=socket.SOCK_STREAM)
-        for _, _, _, _, sockaddr in addrs:
-            ip = sockaddr[0]
-            if ":" in ip:
-                packed = socket.inet_pton(socket.AF_INET6, ip)
-                # IPv4-mapped IPv6 (::ffff:0:0/96) — 提取 v4 地址再检查
-                if packed.startswith(b"\x00" * 10 + b"\xff\xff"):
-                    ipv4 = ".".join(str(b) for b in packed[12:16])
-                    packed4 = struct.unpack("!I", socket.inet_aton(ipv4))[0]
-                    for net, bits in _BLOCKED_NETS_V4:
-                        if packed4 & (0xFFFFFFFF << (32 - bits)) == net:
-                            return True
-                    continue
-                # IPv4-compatible IPv6 (::/96, 如 ::127.0.0.1) — bytes 0-11 全零
-                if packed.startswith(b"\x00" * 12):
-                    ipv4 = ".".join(str(b) for b in packed[12:16])
-                    packed4 = struct.unpack("!I", socket.inet_aton(ipv4))[0]
-                    for net, bits in _BLOCKED_NETS_V4:
-                        if packed4 & (0xFFFFFFFF << (32 - bits)) == net:
-                            return True
-                    continue
-                # IPv6 native: 检查 loopback / link-local / unique-local
-                if packed == b"\x00" * 15 + b"\x01":          # ::1
-                    return True
-                if packed[0] == 0xFE and packed[1] & 0xC0 == 0x80:  # fe80::/10
-                    return True
-                if packed[0] & 0xFE == 0xFC:                   # fc00::/7
-                    return True
-            else:
-                packed = struct.unpack("!I", socket.inet_aton(ip))[0]
-                for net, bits in _BLOCKED_NETS_V4:
-                    mask = 0xFFFFFFFF << (32 - bits)
-                    if packed & mask == net:
-                        return True
     except Exception:
         return False
+    if not host:
+        return False
+    try:
+        addrs = socket.getaddrinfo(host, None, family=socket.AF_UNSPEC, type=socket.SOCK_STREAM)
+    except socket.gaierror:
+        return True  # 无法解析 → 保守拒绝
+    for _, _, _, _, sockaddr in addrs:
+        ip = sockaddr[0]
+        if ":" in ip:
+            packed = socket.inet_pton(socket.AF_INET6, ip)
+            # IPv6 native: 先检查 loopback，避免被后续 IPv4-compatible 误判
+            if packed == b"\x00" * 15 + b"\x01":          # ::1
+                return True
+            # IPv4-mapped IPv6 (::ffff:0:0/96) — 提取 v4 地址再检查
+            if packed.startswith(b"\x00" * 10 + b"\xff\xff"):
+                ipv4 = ".".join(str(b) for b in packed[12:16])
+                packed4 = struct.unpack("!I", socket.inet_aton(ipv4))[0]
+                for net, bits in _BLOCKED_NETS_V4:
+                    if packed4 & (0xFFFFFFFF << (32 - bits)) == net:
+                        return True
+                continue
+            # IPv4-compatible IPv6 (::/96, 如 ::127.0.0.1) — bytes 0-11 全零
+            if packed.startswith(b"\x00" * 12):
+                ipv4 = ".".join(str(b) for b in packed[12:16])
+                packed4 = struct.unpack("!I", socket.inet_aton(ipv4))[0]
+                for net, bits in _BLOCKED_NETS_V4:
+                    if packed4 & (0xFFFFFFFF << (32 - bits)) == net:
+                        return True
+                continue
+            # link-local / unique-local
+            if packed[0] == 0xFE and packed[1] & 0xC0 == 0x80:  # fe80::/10
+                return True
+            if packed[0] & 0xFE == 0xFC:                   # fc00::/7
+                return True
+        else:
+            packed = struct.unpack("!I", socket.inet_aton(ip))[0]
+            for net, bits in _BLOCKED_NETS_V4:
+                mask = 0xFFFFFFFF << (32 - bits)
+                if packed & mask == net:
+                    return True
     return False
 
 
