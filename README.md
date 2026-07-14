@@ -1,5 +1,7 @@
 # Simple Agent
 
+[![test](https://github.com/jm666-qwe/simple-agent/actions/workflows/test.yml/badge.svg)](https://github.com/jm666-qwe/simple-agent/actions/workflows/test.yml)
+
 > 从零构建的 AI Agent，14 个内置工具 + MCP 协议 + 知识图谱 + 插件热加载。  
 > 两周从玩具到项目级，作为实习作品集的核心项目。
 
