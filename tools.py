@@ -1,9 +1,14 @@
-"""工具集 — 14 个工具，全部类化"""
+"""工具集 — 15 个工具，全部类化"""
 
 import os
 import re
+import shlex
+import socket
+import struct
 import subprocess
 import html as _html_lib
+from urllib.parse import urlparse
+
 import requests
 from datetime import datetime
 
@@ -140,15 +145,17 @@ class RunCommandTool(BaseTool):
 
     def run(self, cmd=""):
         allowed = any(
-            cmd == prefix or cmd.startswith(prefix + " ") or cmd.startswith(prefix)
+            cmd == prefix or cmd.startswith(prefix + " ")
             for prefix in _SAFE_PREFIXES
         )
         if not allowed:
             return ToolResult(f"[拒绝] 命令不在白名单: {cmd[:60]}", is_error=True)
 
         try:
+            # 用 shlex 解析为结构化参数，不经过 shell
+            argv = shlex.split(cmd)
             result = subprocess.run(
-                ["bash", "-c", cmd],
+                argv,
                 capture_output=True, text=True, timeout=30,
                 cwd=os.path.expanduser("~"),
             )
@@ -324,18 +331,44 @@ class SearchWebTool(BaseTool):
             return ToolResult(f"搜索失败: {e}", is_error=True)
 
 
+_BLOCKED_NETS = [
+    (0x7F000000, 8), (0x0A000000, 8),       # 127.0.0.0/8, 10.0.0.0/8
+    (0xAC100000, 12), (0xC0A80000, 16),      # 172.16.0.0/12, 192.168.0.0/16
+    (0xA9FE0000, 16),                         # 169.254.0.0/16
+]
+
+
+def _is_private_url(url_str):
+    """检查 URL 是否指向内网地址"""
+    try:
+        host = urlparse(url_str).hostname
+        if not host:
+            return False
+        ip = socket.gethostbyname(host)
+        packed = struct.unpack("!I", socket.inet_aton(ip))[0]
+        for net, bits in _BLOCKED_NETS:
+            mask = 0xFFFFFFFF << (32 - bits)
+            if packed & mask == net:
+                return True
+    except Exception:
+        return False
+    return False
+
+
 class ReadUrlTool(BaseTool):
     name = "read_url"
     description = "读取网页内容，提取纯文本。用于查看搜索结果中的具体页面"
     parameters = {"url": {"type": "string", "description": "网页 URL"}}
 
     def run(self, url=""):
+        if _is_private_url(url):
+            return ToolResult(f"[拒绝] 禁止访问内网地址: {url}", is_error=True)
         try:
             headers = {
                 "User-Agent": "Mozilla/5.0 (compatible; SimpleAgent/1.0)",
                 "Accept": "text/html,application/xhtml+xml",
             }
-            resp = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
+            resp = requests.get(url, headers=headers, timeout=15, allow_redirects=False)
             resp.raise_for_status()
 
             # 检查是否是 HTML

@@ -10,6 +10,7 @@ import json
 import os
 import re
 import time
+import html as _html_escape
 import webbrowser
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -113,17 +114,18 @@ class KnowledgeGraph:
             entity_ids[name] = eid
             etype = info.get("type", "concept")
             color = colors.get(etype, "#95A5A6")
-            # 截断长名称
+            # 截断长名称 + HTML 转义
             label = name[:20] + "..." if len(name) > 20 else name
-            lines.append(f'    {eid}["{label}"]')
+            safe_label = label.replace('"', '\\"')
+            lines.append(f'    {eid}["{safe_label}"]')
             lines.append(f"    style {eid} fill:{color},stroke:#333,color:#fff")
 
         for from_e, rel, to_e in self.relations:
             fid = entity_ids.get(from_e)
             tid = entity_ids.get(to_e)
             if fid and tid:
-                rel_label = rel[:15]
-                lines.append(f"    {fid} -->|{rel_label}| {tid}")
+                safe_rel = rel[:15].replace('"', '\\"')
+                lines.append(f"    {fid} -->|{safe_rel}| {tid}")
 
         graph_code = "\n".join(lines)
 
@@ -173,8 +175,10 @@ class KnowledgeGraph:
         for name, info in self.entities.items():
             etype = info.get("type", "concept")
             props = info.get("properties", {})
-            val = props.get("value", "")[:50]
-            html += f'    <div class="entity {etype}"><h3>{name[:30]}</h3><p>{val}</p></div>\n'
+            val = _html_escape.escape(props.get("value", "")[:50], quote=False)
+            safe_name = _html_escape.escape(name[:30], quote=False)
+            safe_etype = _html_escape.escape(etype, quote=False)
+            html += f'    <div class="entity {safe_etype}"><h3>{safe_name}</h3><p>{val}</p></div>\n'
 
         html += """  </div>
 </div>
